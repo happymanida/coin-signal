@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코인 시그널 리포트</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04070a;
+  --surface: #080e14;
+  --surface2: #0c1520;
+  --border: #162130;
+  --border2: #1e3048;
+  --text: #b8c8d8;
+  --dim: #4a6070;
+  --accent: #00d4ff;
+  --accent2: #0096cc;
+
+  /* Signal colors */
+  --vol: #ff6b35;       /* 거래량 급증 */
+  --stealth: #a855f7;   /* 횡보+거래량 */
+  --vola: #fbbf24;      /* 변동성 */
+
+  --up: #22c55e;
+  --down: #ef4444;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+}
+
+/* NOISE TEXTURE */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:1000;
+  opacity:0.5;
+}
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* HEADER */
+.hdr {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 36px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+
+.hdr-left { display:flex; align-items:center; gap:14px; }
+
+.logo {
+  font-family:'IBM Plex Mono', monospace;
+  font-size:15px;
+  font-weight:700;
+  color: var(--accent);
+  letter-spacing:3px;
+}
+
+.logo span { color: var(--dim); font-weight:300; }
+
+.ver-tag {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:2px;
+  border:1px solid var(--border2);
+  color: var(--dim);
+  padding:2px 7px;
+  border-radius:2px;
+}
+
+.hdr-right { display:flex; align-items:center; gap:16px; }
+
+#ts {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color: var(--dim);
+}
+
+.live-dot {
+  width:6px; height:6px;
+  border-radius:50%;
+  background:var(--up);
+  box-shadow:0 0 6px var(--up);
+  animation: blink 1.5s infinite;
+  display:inline-block;
+  margin-right:6px;
+}
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.btn {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:1px;
+  padding:6px 14px;
+  border-radius:2px;
+  cursor:pointer;
+  transition:all .2s;
+  border: 1px solid;
+}
+
+.btn-refresh {
+  background:transparent;
+  border-color: var(--border2);
+  color: var(--dim);
+}
+.btn-refresh:hover { border-color:var(--accent); color:var(--accent); }
+.btn-refresh:disabled { opacity:.3; cursor:not-allowed; }
+
+/* LEGEND BAR */
+.legend {
+  display:flex;
+  gap:0;
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);
+  padding:0 36px;
+}
+
+.legend-item {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 20px 10px 0;
+  font-size:11px;
+  color: var(--dim);
+  margin-right:16px;
+}
+
+.sig-dot {
+  width:8px; height:8px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+/* MAIN */
+main {
+  max-width:1300px;
+  margin:0 auto;
+  padding:32px 36px 80px;
+}
+
+/* SUMMARY ROW */
+.summary-row {
+  display:grid;
+  grid-template-columns: repeat(4,1fr);
+  gap:12px;
+  margin-bottom:36px;
+}
+
+.sum-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius:3px;
+  padding:16px 18px;
+  position:relative;
+  overflow:hidden;
+}
+
+.sum-card::before {
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:2px;
+}
+
+.sum-card.vol::before { background:var(--vol); }
+.sum-card.stealth::before { background:var(--stealth); }
+.sum-card.vola::before { background:var(--vola); }
+.sum-card.total::before { background:var(--accent); }
+
+.sum-label {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color: var(--dim);
+  margin-bottom:10px;
+}
+
+.sum-num {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:36px;
+  font-weight:700;
+  line-height:1;
+  margin-bottom:6px;
+}
+
+.sum-card.vol .sum-num { color: var(--vol); }
+.sum-card.stealth .sum-num { color: var(--stealth); }
+.sum-card.vola .sum-num { color: var(--vola); }
+.sum-card.total .sum-num { color: var(--accent); }
+
+.sum-desc {
+  font-size:11px;
+  color: var(--dim);
+  line-height:1.5;
+}
+
+/* SECTION */
+.sec-head {
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+
+.sec-title {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+}
+
+.sec-title.vol { color:var(--vol); }
+.sec-title.stealth { color:var(--stealth); }
+.sec-title.vola { color:var(--vola); }
+
+.sec-sub {
+  font-size:11px;
+  color:var(--dim);
+}
+
+.sec-wrap { margin-bottom:44px; }
+
+/* SIGNAL CARDS */
+.cards-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px,1fr));
+  gap:10px;
+}
+
+.sig-card {
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius:3px;
+  padding:18px 20px;
+  position:relative;
+  overflow:hidden;
+  transition:transform .15s, border-color .15s;
+  cursor:default;
+}
+
+.sig-card:hover {
+  transform:translateY(-2px);
+  border-color: var(--border2);
+}
+
+.sig-card::before {
+  content:'';
+  position:absolute;
+  top:0; left:0;
+  width:3px;
+  height:100%;
+}
+
+.sig-card.vol::before { background:var(--vol); }
+.sig-card.stealth::before { background:var(--stealth); }
+.sig-card.vola::before { background:var(--vola); }
+
+/* Glow background tint */
+.sig-card.vol { background:linear-gradient(135deg, rgba(255,107,53,0.05) 0%, var(--surface) 50%); }
+.sig-card.stealth { background:linear-gradient(135deg, rgba(168,85,247,0.05) 0%, var(--surface) 50%); }
+.sig-card.vola { background:linear-gradient(135deg, rgba(251,191,36,0.06) 0%, var(--surface) 50%); }
+
+.card-top {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  margin-bottom:14px;
+}
+
+.coin-info { display:flex; align-items:center; gap:10px; }
+
+.coin-img {
+  width:32px; height:32px;
+  border-radius:50%;
+  border:1px solid var(--border2);
+}
+
+.coin-name-wrap {}
+.coin-name { font-weight:700; font-size:15px; color:#ddeeff; }
+.coin-sym {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--dim);
+  margin-top:1px;
+}
+
+/* Signal badge */
+.sig-badge {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  padding:4px 8px;
+  border-radius:2px;
+  font-weight:600;
+  flex-shrink:0;
+}
+
+.sig-badge.vol { background:rgba(255,107,53,0.15); color:var(--vol); border:1px solid rgba(255,107,53,0.3); }
+.sig-badge.stealth { background:rgba(168,85,247,0.15); color:var(--stealth); border:1px solid rgba(168,85,247,0.3); }
+.sig-badge.vola { background:rgba(251,191,36,0.12); color:var(--vola); border:1px solid rgba(251,191,36,0.3); }
+
+/* Price row */
+.price-row {
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+.price-main {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:22px;
+  font-weight:600;
+  color:#ddeeff;
+}
+
+.price-chg {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  padding:2px 6px;
+  border-radius:2px;
+}
+
+.price-chg.up { background:rgba(34,197,94,0.12); color:var(--up); }
+.price-chg.down { background:rgba(239,68,68,0.12); color:var(--down); }
+.price-chg.flat { background:rgba(255,255,255,0.05); color:var(--dim); }
+
+/* Metrics grid */
+.metrics {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+
+.metric-box {
+  background:rgba(255,255,255,0.025);
+  border:1px solid var(--border);
+  border-radius:2px;
+  padding:8px 10px;
+}
+
+.metric-lbl {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--dim);
+  margin-bottom:4px;
+}
+
+.metric-val {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--text);
+}
+
+.metric-val.hot { color:var(--vol); font-weight:600; }
+.metric-val.purple { color:var(--stealth); font-weight:600; }
+.metric-val.yellow { color:var(--vola); font-weight:600; }
+
+/* Score bar */
+.score-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px solid var(--border);
+}
+
+.score-label {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+  color:var(--dim);
+  white-space:nowrap;
+}
+
+.score-track {
+  flex:1;
+  height:4px;
+  background:var(--border2);
+  border-radius:2px;
+  overflow:hidden;
+}
+
+.score-fill {
+  height:100%;
+  border-radius:2px;
+  transition:width .6s ease;
+}
+
+.score-fill.vol { background:var(--vol); }
+.score-fill.stealth { background:var(--stealth); }
+.score-fill.vola { background:var(--vola); }
+
+.score-num {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  font-weight:600;
+  min-width:36px;
+  text-align:right;
+}
+
+.score-num.vol { color:var(--vol); }
+.score-num.stealth { color:var(--stealth); }
+.score-num.vola { color:var(--vola); }
+
+/* EMPTY STATE */
+.empty {
+  padding:32px 20px;
+  text-align:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--dim);
+  letter-spacing:1px;
+  border:1px dashed var(--border2);
+  border-radius:3px;
+}
+
+/* LOADING */
+.loading-wrap {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:60vh;
+  gap:20px;
+}
+
+.spinner {
+  width:36px; height:36px;
+  border:2px solid var(--border2);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.loading-label {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--dim);
+  letter-spacing:3px;
+}
+
+.loading-sub {
+  font-size:11px;
+  color:var(--dim);
+  text-align:center;
+  max-width:300px;
+  line-height:1.7;
+}
+
+/* ERROR */
+.err-box {
+  background:rgba(239,68,68,0.08);
+  border:1px solid rgba(239,68,68,0.25);
+  color:#fca5a5;
+  padding:20px 24px;
+  border-radius:3px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  line-height:2;
+}
+
+/* HOW IT WORKS */
+.how-box {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:3px;
+  padding:20px 24px;
+  margin-bottom:36px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+
+.how-item {}
+.how-title {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:1.5px;
+  margin-bottom:6px;
+}
+.how-desc { font-size:11px; color:var(--dim); line-height:1.7; }
+
+/* RANK BADGE */
+.rank-tag {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  color:var(--dim);
+  margin-bottom:2px;
+}
+
+/* RESPONSIVE */
+@media(max-width:800px) {
+  .hdr { padding:14px 16px; }
+  main { padding:20px 16px 60px; }
+  .summary-row { grid-template-columns:repeat(2,1fr); }
+  .how-box { grid-template-columns:1fr; }
+  .legend { padding:0 16px; flex-wrap:wrap; }
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="logo">SIGNAL<span>/</span>REPORT</div>
+    <div class="ver-tag">v2 · ALERT MODE</div>
+  </div>
+  <div class="hdr-right">
+    <span><span class="live-dot"></span></span>
+    <span id="ts" class="mono">-- : -- : -- KST</span>
+    <button class="btn btn-refresh" id="refreshBtn" onclick="loadData()">↻ REFRESH</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="sig-dot" style="background:var(--vol)"></div>
+    거래량 급증 — 시가총액 대비 비정상적 거래 발생
+  </div>
+  <div class="legend-item">
+    <div class="sig-dot" style="background:var(--stealth)"></div>
+    스텔스 매집 — 가격은 조용한데 거래량만 증가
+  </div>
+  <div class="legend-item">
+    <div class="sig-dot" style="background:var(--vola)"></div>
+    변동성 급등 — 당일 고가/저가 차이가 비정상적으로 큼
+  </div>
+</div>
+
+<main>
+  <div id="root">
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-label">SCANNING MARKET...</div>
+      <div class="loading-sub">시가총액 상위 50개 코인을<br>분석하고 있습니다</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── UTILS ──────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function fmtPrice(n) {
+  if (!n && n !== 0) return '-';
+  if (n >= 1000) return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
+  if (n >= 1)    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (n >= 0.01) return '$' + n.toFixed(4);
+  return '$' + n.toFixed(6);
+}
+
+function fmtPct(n, decimals=2) {
+  if (n == null) return '-';
+  return (n >= 0 ? '+' : '') + n.toFixed(decimals) + '%';
+}
+
+function fmtVol(n) {
+  if (!n) return '-';
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  return '$' + n.toLocaleString();
+}
+
+function fmtCap(n) {
+  if (!n) return '-';
+  if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9)  return '$' + (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6)  return '$' + (n/1e6).toFixed(0) + 'M';
+  return '$' + n.toLocaleString();
+}
+
+function clsPct(n) {
+  if (n == null) return 'flat';
+  if (Math.abs(n) < 1.5) return 'flat';
+  return n > 0 ? 'up' : 'down';
+}
+
+function updateTs() {
+  const kst = new Date(Date.now() + 9*3600*1000);
+  $('ts').textContent = kst.toISOString().replace('T',' ').substring(0,19) + ' KST';
+}
+
+// ── SIGNAL SCORING ─────────────────────────────
+/**
+ * CoinGecko free API doesn't provide previous-day volume directly.
+ * We derive signals from available fields:
+ *
+ * 1. VOL SURGE  : total_volume / market_cap  → "volume ratio"
+ *    A coin trading 20%+ of its market cap in 24h is unusual.
+ *    Score 0-100 where 100 = top of the universe.
+ *
+ * 2. STEALTH    : low |price_change_24h| (< ±2%) BUT high volume_ratio
+ *    Price is flat but volume is elevated → accumulation/distribution signal.
+ *
+ * 3. VOLATILITY : (high_24h - low_24h) / current_price  → "range ratio"
+ *    A coin that swung 10%+ intraday is volatile regardless of closing change.
+ */
+
+function computeSignals(coins) {
+  // 1. Compute raw ratios
+  const enriched = coins.map(c => {
+    const vol_ratio   = c.market_cap > 0 ? c.total_volume / c.market_cap : 0;
+    const range_ratio = (c.high_24h && c.low_24h && c.current_price)
+      ? (c.high_24h - c.low_24h) / c.current_price
+      : 0;
+    const abs_pct = Math.abs(c.price_change_percentage_24h || 0);
+    return { ...c, vol_ratio, range_ratio, abs_pct };
+  });
+
+  // 2. Percentile ranking helpers
+  function percentileScore(arr, key, ascending=true) {
+    const sorted = [...arr].sort((a,b) => ascending ? a[key]-b[key] : b[key]-a[key]);
+    return arr.map(item => {
+      const rank = sorted.findIndex(s => s.id === item.id);
+      return { id: item.id, score: Math.round((rank / (arr.length-1)) * 100) };
+    });
+  }
+
+  const volScores     = percentileScore(enriched, 'vol_ratio');
+  const rangeScores   = percentileScore(enriched, 'range_ratio');
+  // For stealth: high vol_ratio AND low abs_pct
+  // score = vol_ratio_percentile * (1 - abs_pct_percentile/100)
+  const absSorted = [...enriched].sort((a,b) => a.abs_pct - b.abs_pct);
+  const stealthScores = enriched.map(item => {
+    const vScore = volScores.find(v => v.id === item.id).score;
+    const absRank = absSorted.findIndex(s => s.id === item.id);
+    const absPercentile = Math.round((absRank / (enriched.length-1)) * 100);
+    // High vol + low price change = high stealth
+    const score = Math.round(vScore * (absPercentile / 100));
+    return { id: item.id, score };
+  });
+
+  // 3. Attach scores
+  return enriched.map(c => ({
+    ...c,
+    score_vol:     volScores.find(v => v.id === c.id).score,
+    score_stealth: stealthScores.find(v => v.id === c.id).score,
+    score_range:   rangeScores.find(v => v.id === c.id).score,
+  }));
+}
+
+// ── THRESHOLDS ─────────────────────────────────
+// Only show coins that cross these score thresholds
+const THRESH_VOL     = 75;  // top 25% by volume ratio
+const THRESH_STEALTH = 70;  // top 30% stealth signal
+const THRESH_RANGE   = 75;  // top 25% intraday range
+
+// ── RENDER ─────────────────────────────────────
+function renderCard(c, type) {
+  const pct = c.price_change_percentage_24h;
+  const pctCls = clsPct(pct);
+  const volRatioPct = (c.vol_ratio * 100).toFixed(1);
+  const rangeRatioPct = (c.range_ratio * 100).toFixed(1);
+
+  const badges = { vol:'거래량 급증', stealth:'스텔스 매집', vola:'변동성 급등' };
+  const scoreKey = { vol:'score_vol', stealth:'score_stealth', vola:'score_range' };
+  const score = c[scoreKey[type]];
+
+  const metricVal = (v, cls) => `<span class="metric-val ${cls}">${v}</span>`;
+
+  let metrics = '';
+  if (type === 'vol') {
+    metrics = `
+      <div class="metric-box">
+        <div class="metric-lbl">거래량/시총 비율</div>
+        ${metricVal(volRatioPct + '%', 'hot')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">24시간 거래량</div>
+        ${metricVal(fmtVol(c.total_volume), '')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">시가총액</div>
+        ${metricVal(fmtCap(c.market_cap), '')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">시총 순위</div>
+        ${metricVal('#' + c.market_cap_rank, '')}
+      </div>`;
+  } else if (type === 'stealth') {
+    metrics = `
+      <div class="metric-box">
+        <div class="metric-lbl">가격 변화 (24h)</div>
+        ${metricVal(fmtPct(pct), 'purple')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">거래량/시총 비율</div>
+        ${metricVal(volRatioPct + '%', 'purple')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">24h 거래량</div>
+        ${metricVal(fmtVol(c.total_volume), '')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">시총 순위</div>
+        ${metricVal('#' + c.market_cap_rank, '')}
+      </div>`;
+  } else {
+    const high = c.high_24h ? fmtPrice(c.high_24h) : '-';
+    const low  = c.low_24h  ? fmtPrice(c.low_24h)  : '-';
+    metrics = `
+      <div class="metric-box">
+        <div class="metric-lbl">24h 고가 / 저가 폭</div>
+        ${metricVal(rangeRatioPct + '%', 'yellow')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">가격 변화 (24h)</div>
+        ${metricVal(fmtPct(pct), '')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">당일 고가</div>
+        ${metricVal(high, '')}
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">당일 저가</div>
+        ${metricVal(low, '')}
+      </div>`;
+  }
+
+  return `
+  <div class="sig-card ${type}">
+    <div class="rank-tag">#${c.market_cap_rank}</div>
+    <div class="card-top">
+      <div class="coin-info">
+        <img class="coin-img" src="${c.image}" alt="${c.name}" onerror="this.style.display='none'">
+        <div class="coin-name-wrap">
+          <div class="coin-name">${c.name}</div>
+          <div class="coin-sym">${c.symbol.toUpperCase()}</div>
+        </div>
+      </div>
+      <div class="sig-badge ${type}">${badges[type]}</div>
+    </div>
+
+    <div class="price-row">
+      <div class="price-main">${fmtPrice(c.current_price)}</div>
+      <div class="price-chg ${pctCls}">${fmtPct(pct)}</div>
+    </div>
+
+    <div class="metrics">${metrics}</div>
+
+    <div class="score-row">
+      <div class="score-label">SIGNAL</div>
+      <div class="score-track">
+        <div class="score-fill ${type}" style="width:${score}%"></div>
+      </div>
+      <div class="score-num ${type}">${score}</div>
+    </div>
+  </div>`;
+}
+
+function renderAll(coins) {
+  const scored = computeSignals(coins);
+
+  // Filter each category
+  const volCoins     = scored.filter(c => c.score_vol     >= THRESH_VOL)
+                             .sort((a,b) => b.score_vol - a.score_vol);
+  const stealthCoins = scored.filter(c => c.score_stealth >= THRESH_STEALTH)
+                             .sort((a,b) => b.score_stealth - a.score_stealth);
+  const volaCoins    = scored.filter(c => c.score_range   >= THRESH_RANGE)
+                             .sort((a,b) => b.score_range - a.score_range);
+
+  const totalAlerts = new Set([
+    ...volCoins.map(c=>c.id),
+    ...stealthCoins.map(c=>c.id),
+    ...volaCoins.map(c=>c.id)
+  ]).size;
+
+  function section(title, sub, type, list) {
+    const cardsHtml = list.length
+      ? list.map(c => renderCard(c, type)).join('')
+      : `<div class="empty">현재 이 신호를 만족하는 코인이 없습니다</div>`;
+    return `
+    <div class="sec-wrap">
+      <div class="sec-head">
+        <div class="sec-title ${type}">${title}</div>
+        <div class="sec-sub">${sub} · ${list.length}개 감지</div>
+      </div>
+      <div class="cards-grid">${cardsHtml}</div>
+    </div>`;
+  }
+
+  $('root').innerHTML = `
+    <!-- SUMMARY -->
+    <div class="summary-row">
+      <div class="sum-card total">
+        <div class="sum-label">총 알람 코인</div>
+        <div class="sum-num">${totalAlerts}</div>
+        <div class="sum-desc">3가지 신호 중 하나 이상<br>감지된 코인 수</div>
+      </div>
+      <div class="sum-card vol">
+        <div class="sum-label">거래량 급증</div>
+        <div class="sum-num">${volCoins.length}</div>
+        <div class="sum-desc">시총 대비 비정상적<br>거래 감지</div>
+      </div>
+      <div class="sum-card stealth">
+        <div class="sum-label">스텔스 매집</div>
+        <div class="sum-num">${stealthCoins.length}</div>
+        <div class="sum-desc">가격 횡보 중<br>거래량 급증</div>
+      </div>
+      <div class="sum-card vola">
+        <div class="sum-label">변동성 급등</div>
+        <div class="sum-num">${volaCoins.length}</div>
+        <div class="sum-desc">당일 고저가 폭이<br>비정상적으로 큼</div>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="how-box">
+      <div class="how-item">
+        <div class="how-title" style="color:var(--vol)">🔴 거래량 급증 기준</div>
+        <div class="how-desc">24시간 거래량이 시가총액의 일정 비율 이상인 코인. 보통은 5~15%인데, 이 수치가 갑자기 높아지면 뭔가 움직이는 신호.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-title" style="color:var(--stealth)">🟣 스텔스 매집 기준</div>
+        <div class="how-desc">가격 변화는 ±2% 이내로 조용한데 거래량은 높은 코인. 누군가 조용히 사들이거나 팔고 있다는 신호.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-title" style="color:var(--vola)">🟡 변동성 급등 기준</div>
+        <div class="how-desc">당일 고가-저가 차이를 현재가로 나눈 값이 큰 코인. 방향은 몰라도 오늘 크게 출렁였다는 것을 의미.</div>
+      </div>
+    </div>
+
+    ${section('거래량 급증 코인', '비정상적 거래량 감지', 'vol', volCoins)}
+    ${section('스텔스 매집 코인', '가격 횡보 + 거래량 증가', 'stealth', stealthCoins)}
+    ${section('변동성 급등 코인', '당일 고저가 폭 이상 감지', 'vola', volaCoins)}
+  `;
+}
+
+// ── LOAD DATA ──────────────────────────────────
+async function loadData() {
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '로딩 중...';
+
+  try {
+    const res = await fetch(
+      'https://api.coingecko.com/api/v3/coins/markets' +
+      '?vs_currency=usd&order=market_cap_desc&per_page=50&page=1' +
+      '&sparkline=false&price_change_percentage=24h'
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderAll(data);
+    updateTs();
+  } catch(e) {
+    $('root').innerHTML = `
+      <div class="err-box">
+        ⚠ 데이터 로드 실패 · ${e.message}<br><br>
+        · 인터넷 연결을 확인해 주세요<br>
+        · CoinGecko API 요청 한도 초과 시 1~2분 후 재시도<br>
+        · 그래도 안 되면 새로고침 버튼을 눌러주세요
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ REFRESH';
+  }
+}
+
+// Init
+loadData();
+setInterval(loadData, 3 * 60 * 1000);
+setInterval(updateTs, 1000);
+</script>
+</body>
+</html>
